@@ -7,8 +7,9 @@ import backend
 from dlrm_s_pytorch import DLRM_Net
 import numpy as np
 
+
 class BackendPytorchNative(backend.Backend):
-    def __init__(self, m_spa, ln_emb, ln_bot, ln_top, use_gpu=False, mini_batch_size=1):
+    def __init__(self, m_spa, ln_emb, ln_bot, ln_top, use_gpu=False, use_glow=None, mini_batch_size=1):
         super(BackendPytorchNative, self).__init__()
         self.sess = None
         self.model = None
@@ -19,12 +20,19 @@ class BackendPytorchNative(backend.Backend):
         self.ln_top = ln_top
 
         self.use_gpu = use_gpu and torch.cuda.is_available()
+        self.use_glow = use_glow
         self.device = "cuda:0" if self.use_gpu else "cpu"
 
         ngpus = torch.cuda.device_count() if self.use_gpu else -1
         self.ndevices = min(ngpus, mini_batch_size, ln_emb.size)
         if self.use_gpu:
             print("Using {} GPU(s)...".format(ngpus))
+        elif self.use_glow:
+            print(f"Using Glow {self.use_glow}")
+            import torch_glow
+            torch_glow.enableFusionPass()
+            torch_glow.setGlowBackend(self.use_glow)
+            torch_glow.loadBackendSpecificOptions("options.yaml")
         else:
             print("Using CPU...")
 
@@ -81,6 +89,15 @@ class BackendPytorchNative(backend.Backend):
             ld_model = torch.load(model_path, map_location=torch.device('cpu'))
         # debug print
         # print(ld_model)
+
+        if self.use_glow:
+            print("Tracing model with torch.jit.trace")
+            dlrm.eval()
+            example_input = (torch.rand([1, self.ln_bot[0]], dtype=torch.float),
+                             torch.zeros(len(self.ln_emb), 1, dtype=torch.long),
+                             torch.zeros(len(self.ln_emb), 1, dtype=torch.long))
+            dlrm = torch.jit.trace(dlrm, example_input)
+
         dlrm.load_state_dict(ld_model["state_dict"])
         self.model = dlrm
 
@@ -122,5 +139,6 @@ class BackendPytorchNative(backend.Backend):
                 else batch_lS_o.to(self.device)
 
         with torch.no_grad():
-             output = self.model(dense_x=batch_dense_X, lS_o=batch_lS_o, lS_i=batch_lS_i)
+            #output = self.model(dense_x=batch_dense_X, lS_o=batch_lS_o, lS_i=batch_lS_i)
+            output = self.model(batch_dense_X, batch_lS_o, batch_lS_i)
         return output

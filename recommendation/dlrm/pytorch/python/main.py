@@ -141,6 +141,7 @@ def get_args():
     parser.add_argument("--outputs", help="model outputs (currently not used)")
     parser.add_argument("--backend", help="runtime to use")
     parser.add_argument("--use-gpu", action="store_true", default=False)
+    parser.add_argument("--use-glow", type=str, choices=["Interpreter", "CPU", "OpenCL"], default="Interpreter")
     parser.add_argument("--threads", default=os.cpu_count(), type=int, help="threads")
     parser.add_argument("--cache", type=int, default=0, help="use cache (currently not used)")
     parser.add_argument("--accuracy", action="store_true", help="enable accuracy pass")
@@ -192,7 +193,7 @@ def get_args():
     return args
 
 
-def get_backend(backend, dataset, max_ind_range, data_sub_sample_rate, use_gpu):
+def get_backend(backend, dataset, max_ind_range, data_sub_sample_rate, use_gpu, use_glow):
 
     if backend == "pytorch-native":
         from backend_pytorch_native import BackendPytorchNative
@@ -204,7 +205,8 @@ def get_backend(backend, dataset, max_ind_range, data_sub_sample_rate, use_gpu):
                 ln_emb=np.array([1460,583,10131227,2202608,305,24,12517,633,3,93145,5683,8351593,3194,27,14992,5461306,10,5652,2173,4,7046547,18,15,286181,105,142572]),
                 ln_bot=np.array([13,512,256,64,16]),
                 ln_top=np.array([367,512,256,1]),
-                use_gpu=use_gpu
+                use_gpu=use_gpu,
+                use_glow=use_glow
             )
         elif dataset == "terabyte":
             if max_ind_range == 10000000:
@@ -214,7 +216,8 @@ def get_backend(backend, dataset, max_ind_range, data_sub_sample_rate, use_gpu):
                     ln_emb=np.array([9980333,36084,17217,7378,20134,3,7112,1442,61, 9758201,1333352,313829,10,2208,11156,122,4,970,14, 9994222, 7267859, 9946608,415421,12420,101, 36]),
                     ln_bot=np.array([13,512,256,64]),
                     ln_top=np.array([415,512,512,256,1]),
-                    use_gpu=use_gpu
+                    use_gpu=use_gpu,
+                    use_glow=use_glow
                 )
             elif max_ind_range == 40000000:
                 # 3. Criteo Terabyte MLPerf training (see ./bench/run_and_time.sh --max-in-range=40000000)
@@ -223,7 +226,8 @@ def get_backend(backend, dataset, max_ind_range, data_sub_sample_rate, use_gpu):
                     ln_emb=np.array([39884406,39043,17289,7420,20263,3,7120,1543,63,38532951,2953546,403346,10,2208,11938,155,4,976,14,39979771,25641295,39664984,585935,12972,108,36]),
                     ln_bot=np.array([13,512,256,128]),
                     ln_top=np.array([479,1024,1024,512,256,1]),
-                    use_gpu=use_gpu
+                    use_gpu=use_gpu,
+                    use_glow=use_glow
                 )
             else:
                 raise ValueError("only --max-in-range 10M or 40M is supported")
@@ -478,7 +482,7 @@ def main():
     log.info(args)
 
     # find backend
-    backend = get_backend(args.backend, args.dataset, args.max_ind_range, args.data_sub_sample_rate, args.use_gpu)
+    backend = get_backend(args.backend, args.dataset, args.max_ind_range, args.data_sub_sample_rate, args.use_gpu, args.use_glow)
 
     # dataset to use
     wanted_dataset, pre_proc, post_proc, kwargs = SUPPORTED_DATASETS[args.dataset]
