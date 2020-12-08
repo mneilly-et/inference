@@ -139,6 +139,7 @@ class BackendPytorchNative(backend.Backend):
                 else batch_lS_o.to(self.device)
 
         with torch.no_grad():
+            # MRN: explicitly naming parameters doesn't work with torch.jit.trace()
             #output = self.model(dense_x=batch_dense_X, lS_o=batch_lS_o, lS_i=batch_lS_i)
             output = self.model(batch_dense_X, batch_lS_o, batch_lS_i)
         return output
